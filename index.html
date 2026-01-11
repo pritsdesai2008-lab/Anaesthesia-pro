@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Anaesthesia Suite Pro</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { colors: { darkbg: '#0f172a', darkcard: '#1e293b' } } }
+        }
+    </script>
+
+    <style>
+        /* --- GLOBAL UI --- */
+        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid #e2e8f0; }
+        .dark .glass { background: rgba(30, 41, 59, 0.95); border-color: #334155; color: #e2e8f0; }
+        
+        input, select, textarea { border: 1px solid #cbd5e1; border-radius: 10px; padding: 12px; width: 100%; font-size: 14px; background: white; color: #0f172a; }
+        .dark input, .dark select, .dark textarea { background: #0f172a; border-color: #334155; color: white; }
+        
+        label { font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; letter-spacing: 0.8px; }
+        .dark label { color: #94a3b8; }
+        
+        .view { display: none; }
+        .view.active { display: block; animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .pill { cursor: pointer; padding: 8px 16px; border-radius: 99px; font-size: 11px; font-weight: 700; border: 1px solid #e2e8f0; background: white; color: #64748b; }
+        .dark .pill { background: #0f172a; border-color: #334155; color: #94a3b8; }
+        .pill.active { background: #3b82f6; color: white; border-color: #3b82f6; }
+        
+        #toast { visibility: hidden; min-width: 250px; background-color: #0f172a; color: #fff; text-align: center; border-radius: 12px; padding: 16px; position: fixed; z-index: 9999; left: 50%; bottom: 30px; transform: translateX(-50%); font-weight: 700; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+        #toast.show { visibility: visible; animation: fadeinout 2.5s; }
+        @keyframes fadeinout { 0% { bottom: 0; opacity: 0; } 20% { bottom: 30px; opacity: 1; } 80% { bottom: 30px; opacity: 1; } 100% { bottom: 0; opacity: 0; } }
+
+        /* --- MOBILE TABLE FIX (Cards) --- */
+        @media (max-width: 768px) {
+            .mobile-table thead { display: none; }
+            .mobile-table tr { display: block; margin-bottom: 1rem; background-color: white; border: 1px solid #e2e8f0; border-radius: 1rem; padding: 1rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+            .dark .mobile-table tr { background-color: #1e293b; border-color: #334155; }
+            .mobile-table td { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid #f1f5f9; }
+            .dark .mobile-table td { border-color: #334155; }
+            .mobile-table td:last-child { border-bottom: none; display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem; padding-top: 1rem; border-top: 1px dashed #334155; }
+            .mobile-table td::before { content: attr(data-label); font-weight: 800; font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 transition-colors duration-300">
+
+<div id="toast">Notification</div>
+
+<div id="app" class="max-w-7xl mx-auto min-h-screen flex flex-col md:flex-row">
+    
+    <nav class="w-full md:w-72 bg-gradient-to-b from-slate-900 to-slate-950 text-white p-6 flex flex-col sticky top-0 md:h-screen z-[100] shadow-2xl">
+        <div class="flex justify-between items-start mb-2 md:mb-10">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-black tracking-tighter italic text-blue-400">ANAESPRO</h1>
+                <p id="nav_dr_name" class="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-widest">Loading...</p>
+            </div>
+            <button onclick="toggleNav()" class="md:hidden p-2 text-slate-400 hover:text-white border border-slate-700 rounded-lg">☰</button>
+        </div>
+
+        <div id="nav_content" class="hidden md:flex flex-col flex-grow space-y-3">
+            <button onclick="changeView('dashboard')" class="w-full text-left p-4 rounded-xl hover:bg-white/5 font-bold text-sm flex items-center gap-3"><span>📊</span> Dashboard</button>
+            <button onclick="changeView('new-case')" class="w-full text-left p-4 rounded-xl hover:bg-white/5 font-bold text-sm flex items-center gap-3"><span>✚</span> New Case</button>
+            <button onclick="changeView('logbook')" class="w-full text-left p-4 rounded-xl hover:bg-white/5 font-bold text-sm flex items-center gap-3"><span>📋</span> Logbook</button>
+            <button onclick="toggleProfile()" class="w-full text-left p-4 rounded-xl border border-slate-700 hover:bg-white/5 font-bold text-sm mt-8 flex items-center gap-3"><span>⚙</span> Settings</button>
+            
+            <div class="pt-6 border-t border-slate-800 mt-auto space-y-3">
+                <button onclick="toggleTheme()" class="w-full bg-slate-800 hover:bg-slate-700 p-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2"><span id="theme_icon">🌑</span> Toggle Mode</button>
+                <button onclick="exportFullSummary()" class="w-full bg-blue-600 hover:bg-blue-500 p-3 rounded-xl text-xs font-black uppercase shadow-lg">Detailed PDF Summary</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-grow p-4 md:p-10 pb-24 bg-slate-50 dark:bg-darkbg relative z-10 transition-colors duration-300">
+        
+        <div id="view-dashboard" class="view active">
+            <div class="mb-8"><h2 class="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Practice Overview</h2></div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="glass p-6 rounded-2xl border-l-8 border-blue-500">
+                    <p class="text-[10px] text-slate-400 font-bold uppercase">Total Revenue</p>
+                    <p id="dash_total" class="text-3xl font-black text-slate-800 dark:text-white">₹0</p>
+                </div>
+                <div class="glass p-6 rounded-2xl border-l-8 border-emerald-500">
+                    <p class="text-[10px] text-slate-400 font-bold uppercase">This Month</p>
+                    <p id="dash_month" class="text-3xl font-black text-slate-800 dark:text-white">₹0</p>
+                </div>
+                <div class="glass p-6 rounded-2xl border-l-8 border-purple-500">
+                    <p class="text-[10px] text-slate-400 font-bold uppercase">Total Cases</p>
+                    <p id="dash_cases" class="text-3xl font-black text-slate-800 dark:text-white">0</p>
+                </div>
+            </div>
+            <div class="glass p-6 rounded-3xl shadow-lg h-64 flex items-end justify-around pb-4" id="chart_container"></div>
+        </div>
+
+        <div id="view-new-case" class="view max-w-5xl mx-auto">
+            <h2 class="text-2xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-8">New Clinical Entry</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
+                <div class="glass p-5 md:p-8 rounded-3xl space-y-4">
+                    <h3 class="text-xs font-black text-blue-600 uppercase border-b pb-2">Patient Details</h3>
+                    <div><label>Patient Name</label><input type="text" id="in_name" class="font-bold"></div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label>Age</label><input type="number" id="in_age"></div>
+                        <div><label>Sex</label><select id="in_sex"><option>Male</option><option>Female</option><option>Other</option></select></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label>IPD / Case No</label><input type="text" id="in_ipd"></div>
+                        <div><label>Date</label><input type="date" id="in_date"></div>
+                    </div>
+                </div>
+                <div class="glass p-5 md:p-8 rounded-3xl space-y-4">
+                    <h3 class="text-xs font-black text-blue-600 uppercase border-b pb-2">Surgical Details</h3>
+                    <div><label>Surgery</label><input type="text" id="in_surgery" list="dl_surgery"></div>
+                    <div><label>Surgeon</label><input type="text" id="in_surgeon" list="dl_surgeon"></div>
+                    <div><label>Anaesthesia</label><input type="text" id="in_ana" list="dl_ana"></div>
+                    <div><label>Hospital</label><input type="text" id="in_hosp" list="dl_hosp"></div>
+                </div>
+            </div>
+            <div class="mt-8 glass p-6 rounded-[2rem] border-2 border-slate-900 dark:border-blue-500/50 text-center">
+                <label class="text-slate-400 font-bold mb-2">Professional Fees</label>
+                <div class="flex justify-center items-center gap-3">
+                    <span class="text-3xl text-slate-400">₹</span>
+                    <input type="number" id="in_fee" class="text-5xl font-black bg-transparent border-none text-center w-full" placeholder="0">
+                </div>
+                <div class="grid grid-cols-2 gap-4 mt-4">
+                    <select id="in_mop"><option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Cheque</option></select>
+                    <input type="text" id="in_utr" placeholder="UTR (Optional)">
+                </div>
+            </div>
+            <button onclick="saveCaseRecord()" class="w-full mt-8 bg-blue-600 text-white py-5 rounded-2xl font-black text-xl shadow-xl">SAVE RECORD</button>
+        </div>
+
+        <div id="view-logbook" class="view">
+            <div class="flex justify-between items-end mb-8">
+                <h2 class="text-3xl font-black text-slate-900 dark:text-white">Logbook</h2>
+                <div class="text-right"><p class="text-[10px] font-bold text-slate-400 uppercase">Filtered Total</p><p id="total_display" class="text-2xl font-black text-emerald-500">₹0</p></div>
+            </div>
+            <div class="glass p-4 rounded-3xl mb-8 space-y-4">
+                <div class="flex flex-wrap gap-2">
+                    <button class="pill active" data-f="all">All</button>
+                    <button class="pill" data-f="daily">Today</button>
+                    <button class="pill" data-f="weekly">Week</button>
+                    <button class="pill" data-f="monthly">Month</button>
+                </div>
+                <div class="flex flex-col md:flex-row gap-3">
+                    <input type="text" id="search_bar" oninput="renderLog()" placeholder="Search..." class="flex-grow">
+                    <select id="filter_hosp" onchange="renderLog()" class="md:w-1/4"><option value="">All Hospitals</option></select>
+                </div>
+            </div>
+            <div class="glass rounded-xl overflow-hidden shadow-lg">
+                <table class="w-full mobile-table text-left text-sm text-slate-600 dark:text-slate-300">
+                    <thead class="bg-slate-100 dark:bg-slate-800 text-xs uppercase font-bold text-slate-500">
+                        <tr>
+                            <th class="p-4">Date</th>
+                            <th class="p-4">Patient</th>
+                            <th class="p-4">Surgery</th>
+                            <th class="p-4">Hospital</th>
+                            <th class="p-4 text-right">Fee</th>
+                            <th class="p-4 text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="log_body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="profile_view" class="hidden fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-4 backdrop-blur-sm">
+            <div class="bg-white dark:bg-darkcard w-full max-w-lg rounded-3xl p-8 max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between mb-6"><h2 class="font-black text-xl dark:text-white">SETTINGS</h2><button onclick="toggleProfile()" class="text-2xl">&times;</button></div>
+                <div class="space-y-4">
+                    <div><label>Your Name</label><input type="text" id="cfg_name"></div>
+                    <div><label>Qualification</label><input type="text" id="cfg_degree"></div>
+                    <div><label>Reg Number</label><input type="text" id="cfg_reg"></div>
+                    <div><label>Hospital Header</label><textarea id="cfg_hosp"></textarea></div>
+                    <button onclick="saveProfile()" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">SAVE PROFILE</button>
+                    <hr class="border-slate-200 dark:border-slate-700 my-4">
+                    <button onclick="backupData()" class="w-full bg-slate-100 dark:bg-slate-800 py-3 rounded-xl font-bold text-xs uppercase">Download Backup (JSON)</button>
+                    <button onclick="document.getElementById('import_file').click()" class="w-full bg-slate-100 dark:bg-slate-800 py-3 rounded-xl font-bold text-xs uppercase mt-2">Restore Backup</button>
+                    <input type="file" id="import_file" class="hidden" onchange="importData(event)">
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <datalist id="dl_surgery"></datalist><datalist id="dl_surgeon"></datalist><datalist id="dl_hosp"></datalist>
+    <datalist id="dl_ana"><option>GA</option><option>Spinal</option><option>Epidural</option><option>Block</option><option>Sedation</option></datalist>
+    <div id="qr_stage" style="display:none;"></div>
+
+</div>
+
+<script>
+    // --- INITIALIZATION ---
+    let db = JSON.parse(localStorage.getItem('anaes_v5_db')) || [];
+    let profile = JSON.parse(localStorage.getItem('anaes_v5_prof')) || { 
+        name: 'Doctor Name', degree: 'MD', reg: '12345', hosp: 'City Hospital', lastBackup: 0, theme: 'light' 
+    };
+    let editId = null;
+    let timeFilter = 'all';
+
+    function init() {
+        if(profile.theme === 'dark') document.documentElement.classList.add('dark');
+        document.getElementById('theme_icon').innerText = profile.theme === 'dark' ? '☀' : '🌑';
+        
+        document.getElementById('cfg_name').value = profile.name;
+        document.getElementById('cfg_degree').value = profile.degree;
+        document.getElementById('cfg_reg').value = profile.reg;
+        document.getElementById('cfg_hosp').value = profile.hosp;
+        document.getElementById('nav_dr_name').innerText = `Dr. ${profile.name}`;
+        
+        document.getElementById('in_date').valueAsDate = new Date();
+        updateDashboard(); updateDatalists(); setupFilters();
+
+        document.querySelectorAll('.pill').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+                btn.classList.add('active');
+                timeFilter = btn.dataset.f;
+                renderLog();
+            });
+        });
+    }
+
+    // --- NUMBER TO WORDS (INDIAN CURRENCY FORMAT) ---
+    function numToWords(n) {
+        if (n === 0) return "Zero";
+        const units = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+        const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+        
+        const convert = (num) => {
+            if (num < 20) return units[num];
+            if (num < 100) return tens[Math.floor(num / 10)] + (num % 10 ? " " + units[num % 10] : "");
+            if (num < 1000) return units[Math.floor(num / 100)] + " Hundred" + (num % 100 ? " " + convert(num % 100) : "");
+            if (num < 100000) return convert(Math.floor(num / 1000)) + " Thousand" + (num % 1000 ? " " + convert(num % 1000) : "");
+            if (num < 10000000) return convert(Math.floor(num / 100000)) + " Lakh" + (num % 100000 ? " " + convert(num % 100000) : "");
+            return convert(Math.floor(num / 10000000)) + " Crore" + (num % 10000000 ? " " + convert(num % 10000000) : "");
+        };
+        return convert(n) + " Only";
+    }
+
+    // --- CRUD OPERATIONS ---
+    function saveCaseRecord() {
+        const name = document.getElementById('in_name').value;
+        if(!name) { showToast("Name is required"); return; }
+        const data = {
+            id: editId || Date.now(),
+            date: document.getElementById('in_date').value,
+            name: name.toUpperCase(),
+            age: document.getElementById('in_age').value,
+            sex: document.getElementById('in_sex').value,
+            ipd: document.getElementById('in_ipd').value,
+            surgery: document.getElementById('in_surgery').value,
+            surgeon: document.getElementById('in_surgeon').value,
+            ana: document.getElementById('in_ana').value,
+            hosp: document.getElementById('in_hosp').value,
+            fee: parseFloat(document.getElementById('in_fee').value || 0),
+            mop: document.getElementById('in_mop').value,
+            utr: document.getElementById('in_utr').value
+        };
+        if(editId) { const idx = db.findIndex(x => x.id === editId); db[idx] = data; editId = null; } else { db.push(data); }
+        localStorage.setItem('anaes_v5_db', JSON.stringify(db));
+        showToast("Record Saved!");
+        resetForm(); updateDashboard(); updateDatalists(); changeView('logbook');
+    }
+
+    function editCase(id) {
+        const c = db.find(x => x.id === id);
+        if(!c) return;
+        editId = id;
+        document.getElementById('in_name').value = c.name; document.getElementById('in_age').value = c.age; document.getElementById('in_sex').value = c.sex;
+        document.getElementById('in_ipd').value = c.ipd; document.getElementById('in_date').value = c.date; document.getElementById('in_surgery').value = c.surgery;
+        document.getElementById('in_surgeon').value = c.surgeon; document.getElementById('in_ana').value = c.ana; document.getElementById('in_hosp').value = c.hosp;
+        document.getElementById('in_fee').value = c.fee; document.getElementById('in_mop').value = c.mop; document.getElementById('in_utr').value = c.utr;
+        changeView('new-case');
+    }
+
+    function renderLog() {
+        const q = document.getElementById('search_bar').value.toLowerCase();
+        const fH = document.getElementById('filter_hosp').value;
+        const now = new Date();
+        const filtered = db.filter(c => {
+            const matchTxt = c.name.toLowerCase().includes(q) || c.hosp.toLowerCase().includes(q);
+            if(!matchTxt) return false;
+            if(fH && c.hosp !== fH) return false;
+            const d = new Date(c.date);
+            if(timeFilter === 'daily') return c.date === now.toISOString().split('T')[0];
+            if(timeFilter === 'weekly') return (now - d) / 86400000 <= 7;
+            if(timeFilter === 'monthly') return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+            return true;
+        });
+
+        document.getElementById('total_display').innerText = `₹${filtered.reduce((a,b)=>a+b.fee,0).toLocaleString()}`;
+        document.getElementById('log_body').innerHTML = filtered.sort((a,b)=> new Date(b.date)-new Date(a.date)).map(c => `
+            <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 border-b dark:border-slate-700 transition">
+                <td class="p-4 font-mono text-xs" data-label="Date">${c.date}</td>
+                <td class="p-4 font-bold text-slate-800 dark:text-white" data-label="Patient">${c.name} <span class="text-xs font-normal text-slate-400">(${c.age}/${c.sex})</span></td>
+                <td class="p-4 text-xs" data-label="Surgery">${c.surgery}</td>
+                <td class="p-4 text-xs" data-label="Hospital">${c.hosp}</td>
+                <td class="p-4 font-mono font-bold text-emerald-600 text-right" data-label="Fee">₹${c.fee}</td>
+                <td class="p-4 text-center" data-label="Actions">
+                    <button onclick="printA5Receipt(${c.id})" class="bg-blue-600 text-white px-3 py-1 rounded text-xs font-bold mr-1">Receipt</button>
+                    <button onclick="editCase(${c.id})" class="bg-slate-500 text-white px-3 py-1 rounded text-xs font-bold mr-1">Edit</button>
+                    <button onclick="deleteCase(${c.id})" class="text-red-400 text-xs font-bold">Del</button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    // --- PRINTING ENGINE (Blob + Viewport Meta Fix) ---
+    
+    // 1. A5 RECEIPT GENERATOR
+    function printA5Receipt(id) {
+        const c = db.find(x => x.id === id);
+        if (!c) return;
+
+        // QR
+        document.getElementById('qr_stage').innerHTML = "";
+        new QRCode(document.getElementById('qr_stage'), { text: `REC:${c.id}|${c.fee}`, width: 60, height: 60 });
+        const qrUrl = document.getElementById('qr_stage').querySelector('canvas').toDataURL();
+        const words = numToWords(c.fee);
+
+        const html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Receipt_${c.name}</title>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                    body { font-family: 'Helvetica', sans-serif; padding: 20px; box-sizing: border-box; background: white; color: #000; margin: auto; }
+                    /* Screen: Fit width */
+                    @media screen { body { max-width: 100%; } .sheet { border: 1px solid #eee; padding: 20px; border-radius: 8px; } }
+                    /* Print: Force A5 */
+                    @media print { 
+                        @page { size: A5 portrait; margin: 0; }
+                        body { width: 148mm; height: 210mm; padding: 10mm; }
+                        .sheet { border: none; padding: 0; }
+                        .btn-group { display: none; }
+                    }
+                    .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
+                    .h1 { font-size: 18px; font-weight: bold; text-transform: uppercase; }
+                    .sub { font-size: 10px; }
+                    .row { display: flex; margin-bottom: 8px; font-size: 12px; }
+                    .lbl { width: 100px; font-weight: bold; color: #555; }
+                    .val { flex: 1; font-weight: bold; border-bottom: 1px dotted #999; }
+                    .box { border: 2px solid #000; padding: 10px; margin-top: 20px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
+                    .amt { font-size: 20px; font-weight: bold; }
+                    .footer { margin-top: 30px; text-align: center; font-size: 10px; }
+                    
+                    .btn-group { position: fixed; bottom: 0; left: 0; width: 100%; background: white; padding: 15px; border-top: 1px solid #ccc; display: flex; gap: 10px; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); }
+                    .btn { flex: 1; padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 14px; text-decoration: none; cursor: pointer; }
+                    .btn-print { background: #2563eb; color: white; }
+                    .btn-dl { background: #059669; color: white; }
+                </style>
+            </head>
+            <body>
+                <div class="sheet">
+                    <div class="header">
+                        <div class="h1">${profile.hosp}</div>
+                        <div class="sub">Anaesthesia Services Receipt</div>
+                    </div>
+                    
+                    <div style="display:flex; justify-content:space-between; font-size:10px; margin-bottom:15px;">
+                        <div>Receipt No: ${c.id.toString().slice(-6)}</div>
+                        <div>Date: ${c.date}</div>
+                    </div>
+
+                    <div class="row"><div class="lbl">Patient:</div><div class="val">${c.name}</div></div>
+                    <div class="row"><div class="lbl">Age/Sex:</div><div class="val">${c.age} / ${c.sex}</div></div>
+                    <div class="row"><div class="lbl">IPD No:</div><div class="val">${c.ipd || '-'}</div></div>
+                    <div class="row"><div class="lbl">Surgery:</div><div class="val">${c.surgery}</div></div>
+                    <div class="row"><div class="lbl">Surgeon:</div><div class="val">Dr. ${c.surgeon}</div></div>
+                    <div class="row"><div class="lbl">Anaesthesia:</div><div class="val">${c.ana}</div></div>
+
+                    <div class="box">
+                        <div>
+                            <div style="font-size:10px; text-transform:uppercase;">Amount Received</div>
+                            <div class="amt">₹ ${c.fee}/-</div>
+                            <div style="font-size:10px;">(${c.mop})</div>
+                        </div>
+                        <img src="${qrUrl}" width="60">
+                    </div>
+                    
+                    <div style="margin-top:10px; font-size:11px; font-style:italic;">
+                        In Words: ${words}
+                    </div>
+
+                    <div class="footer">
+                        <div style="margin-bottom:30px;">&nbsp;</div>
+                        <div style="border-top:1px solid #000; width:150px; margin:auto;"></div>
+                        <strong>Dr. ${profile.name}</strong><br>
+                        ${profile.degree} | Reg: ${profile.reg}
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <a href="#" onclick="window.print()" class="btn btn-print">🖨️ Print / Save PDF</a>
+                    <a href="#" onclick="downloadHTML()" class="btn btn-dl">📥 Download File</a>
+                </div>
+
+                <script>
+                    function downloadHTML() {
+                        const blob = new Blob([document.documentElement.outerHTML], {type: 'text/html'});
+                        const a = document.createElement('a');
+                        a.href = URL.createObjectURL(blob);
+                        a.download = 'Receipt_${c.name}.html';
+                        a.click();
+                    }
+                    // Auto-trigger print
+                    setTimeout(() => window.print(), 800);
+                <\/script>
+            </body>
+            </html>
+        `;
+        openInSystemBrowser(html);
+    }
+
+    // 2. SUMMARY GENERATOR (A4 Landscape)
+    function exportFullSummary() {
+        const now = new Date();
+        const filtered = db.filter(c => {
+            if(timeFilter === 'daily') return c.date === now.toISOString().split('T')[0];
+            if(timeFilter === 'weekly') return (now - new Date(c.date)) / 86400000 <= 7;
+            if(timeFilter === 'monthly') return new Date(c.date).getMonth() === now.getMonth();
+            return true;
+        });
+
+        const total = filtered.reduce((s,c) => s + c.fee, 0);
+
+        const html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Clinical_Summary</title>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                    body{font-family:sans-serif; padding:10px; font-size:12px;} 
+                    /* Screen: Scrollable */
+                    @media screen { body { padding-bottom: 80px; } table { min-width: 800px; } .wrap { overflow-x: auto; } }
+                    /* Print: A4 Landscape */
+                    @media print { 
+                        @page { size: A4 landscape; margin: 10mm; } 
+                        .btn-group { display: none; }
+                    }
+                    h2 { text-align: center; margin-bottom: 5px; }
+                    table{width:100%; border-collapse:collapse; margin-top: 10px;} 
+                    th,td{border:1px solid #444; padding:6px; text-align: left;} 
+                    th{background:#eee; font-size:11px;} 
+                    .num { text-align: right; }
+                    .btn-group { position: fixed; bottom: 0; left: 0; width: 100%; background: white; padding: 15px; border-top: 1px solid #ccc; display: flex; gap: 10px; }
+                    .btn { flex: 1; padding: 10px; border-radius: 5px; text-align: center; color: white; text-decoration: none; font-weight: bold; }
+                </style>
+            </head>
+            <body>
+                <h2>CLINICAL SUMMARY</h2>
+                <div style="text-align:center; margin-bottom:15px;">Period: ${timeFilter.toUpperCase()} | Dr. ${profile.name}</div>
+                <div class="wrap">
+                <table>
+                    <thead>
+                        <tr><th>Date</th><th>Patient</th><th>Surgery</th><th>Surgeon</th><th>Anaesthesia</th><th>Hospital</th><th class="num">Fee</th></tr>
+                    </thead>
+                    <tbody>
+                        ${filtered.map(c => `<tr>
+                            <td>${c.date}</td>
+                            <td>${c.name}</td>
+                            <td>${c.surgery}</td>
+                            <td>${c.surgeon}</td>
+                            <td>${c.ana}</td>
+                            <td>${c.hosp}</td>
+                            <td class="num">₹${c.fee}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                    <tfoot>
+                        <tr><th colspan="6" style="text-align:right">TOTAL REVENUE</th><th class="num" style="font-size:14px;">₹${total}</th></tr>
+                    </tfoot>
+                </table>
+                </div>
+
+                <div class="btn-group">
+                    <a href="#" onclick="window.print()" class="btn" style="background:#2563eb;">🖨️ Print / PDF</a>
+                    <a href="#" onclick="downloadHTML()" class="btn" style="background:#059669;">📥 Download</a>
+                </div>
+                <script>
+                    function downloadHTML() {
+                        const blob = new Blob([document.documentElement.outerHTML], {type: 'text/html'});
+                        const a = document.createElement('a');
+                        a.href = URL.createObjectURL(blob);
+                        a.download = 'Summary.html';
+                        a.click();
+                    }
+                <\/script>
+            </body>
+            </html>
+        `;
+        openInSystemBrowser(html);
+    }
+
+    // --- SYSTEM BROWSER TRIGGER ---
+    function openInSystemBrowser(htmlContent) {
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = "_blank"; // Forces Android to pick the System Browser
+        a.click();
+    }
+
+    // --- UTILS ---
+    function toggleNav() { document.getElementById('nav_content').classList.toggle('hidden'); }
+    function changeView(v) { document.querySelectorAll('.view').forEach(x=>x.classList.remove('active')); document.getElementById('view-'+v).classList.add('active'); if(v==='logbook') renderLog(); toggleNav(); }
+    function toggleProfile() { document.getElementById('profile_view').classList.toggle('hidden'); }
+    function showToast(msg) { const t = document.getElementById("toast"); t.innerText = msg; t.className = "show"; setTimeout(() => { t.className = t.className.replace("show", ""); }, 3000); }
+    function toggleTheme() { document.documentElement.classList.toggle('dark'); profile.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light'; localStorage.setItem('anaes_v5_prof', JSON.stringify(profile)); document.getElementById('theme_icon').innerText = profile.theme === 'dark' ? '☀' : '🌑'; }
+    function saveProfile() { profile.name = document.getElementById('cfg_name').value; profile.degree = document.getElementById('cfg_degree').value; profile.reg = document.getElementById('cfg_reg').value; profile.hosp = document.getElementById('cfg_hosp').value; localStorage.setItem('anaes_v5_prof', JSON.stringify(profile)); toggleProfile(); init(); }
+    function backupData() { const a = document.createElement('a'); a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db)); a.download = `backup_${Date.now()}.json`; a.click(); profile.lastBackup = Date.now(); localStorage.setItem('anaes_v5_prof', JSON.stringify(profile)); }
+    function importData(e) { const r = new FileReader(); r.onload = (ev) => { db = JSON.parse(ev.target.result); localStorage.setItem('anaes_v5_db', JSON.stringify(db)); location.reload(); }; r.readAsText(e.target.files[0]); }
+    function deleteCase(id) { if(confirm("Delete?")) { db = db.filter(x => x.id !== id); localStorage.setItem('anaes_v5_db', JSON.stringify(db)); renderLog(); updateDashboard(); } }
+    function updateDashboard() { document.getElementById('dash_total').innerText = '₹' + db.reduce((a,b)=>a+b.fee,0); document.getElementById('dash_cases').innerText = db.length; document.getElementById('dash_month').innerText = '₹' + db.filter(c => new Date(c.date).getMonth() === new Date().getMonth()).reduce((a,b)=>a+b.fee,0); 
+    const months = Array.from({length:6}, (_,i) => { const d = new Date(); d.setMonth(d.getMonth()-i); const val = db.filter(c => new Date(c.date).getMonth() === d.getMonth()).reduce((a,b)=>a+b.fee,0); return `<div style="width:15%; background:${val>0?'#3b82f6':'#e2e8f0'}; height:${val>0 ? (val/50000)*100 : 5}%; border-radius:4px 4px 0 0; position:relative;"><span style="position:absolute;top:-15px;left:0;font-size:8px;">${d.toLocaleString('default',{month:'short'})}</span></div>`; }).reverse().join(''); document.getElementById('chart_container').innerHTML = months; }
+    function updateDatalists() { const fill = (id, k) => document.getElementById(id).innerHTML = [...new Set(db.map(x=>x[k]))].filter(x=>x).map(v=>`<option value="${v}">`).join(''); fill('dl_surgery','surgery'); fill('dl_surgeon','surgeon'); fill('dl_hosp','hosp'); }
+    function setupFilters() { document.getElementById('filter_hosp').innerHTML = '<option value="">All Hospitals</option>' + [...new Set(db.map(x=>x.hosp))].map(h=>`<option>${h}</option>`).join(''); }
+    function resetForm() { document.querySelectorAll('#view-new-case input:not([type="date"])').forEach(i => i.value = ''); document.getElementById('in_mop').value = 'Cash'; }
+
+    window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
