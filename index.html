@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AnaesPro Case Logbook</title>
+    <style>
+        /* --- 1. GLOBAL STYLES --- */
+        :root { --primary: #007bff; --secondary: #6c757d; --success: #28a745; --danger: #dc3545; --light: #f8f9fa; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 15px; color: #333; }
+        h2 { text-align: center; color: #444; margin-bottom: 20px; }
+        
+        /* --- 2. INPUT FORM STYLES --- */
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9rem; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 5px; font-size: 16px; box-sizing: border-box; }
+        
+        /* --- 3. BUTTON STYLES --- */
+        .btn { border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; width: 100%; transition: opacity 0.2s; color: white; margin-bottom: 5px; }
+        .btn:active { opacity: 0.8; }
+        .btn-primary { background-color: var(--primary); }
+        .btn-success { background-color: var(--success); }
+        .btn-danger { background-color: var(--danger); width: auto; padding: 5px 10px; font-size: 14px; }
+        .btn-print { background-color: var(--secondary); width: auto; padding: 5px 10px; font-size: 14px; margin-right: 5px; }
+
+        /* --- 4. REPORT BUTTONS GRID --- */
+        .report-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .report-grid button { font-size: 14px; padding: 10px; }
+
+        /* --- 5. TABLE STYLES --- */
+        .table-container { overflow-x: auto; background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; min-width: 600px; } /* Ensures table doesn't squish on desktop */
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background-color: var(--primary); color: white; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.5px; }
+
+        /* --- 6. MOBILE FIX (The "Card View" Transformation) --- */
+        @media screen and (max-width: 768px) {
+            table, thead, tbody, th, td, tr { display: block; }
+            thead { display: none; /* Hide header row */ }
+            
+            tr { margin-bottom: 15px; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); background: white; overflow: hidden; }
+            
+            td { 
+                padding-left: 45% !important; 
+                position: relative; 
+                border-bottom: 1px solid #eee;
+                text-align: right; 
+                display: flex;
+                justify-content: flex-end;
+                align-items: center;
+                min-height: 25px;
+            }
+            
+            td::before { 
+                content: attr(data-label); 
+                position: absolute; 
+                left: 15px; 
+                width: 40%; 
+                font-weight: bold; 
+                text-align: left; 
+                color: #555;
+                font-size: 0.9rem;
+            }
+            
+            td:last-child { border-bottom: none; justify-content: flex-end; padding-top: 10px; padding-bottom: 10px;}
+        }
+
+        /* --- 7. UTILITY --- */
+        .hidden { display: none; }
+        .total-banner { background: #e9ecef; padding: 10px; text-align: center; font-weight: bold; margin-bottom: 15px; border-radius: 5px; color: #495057; }
+    </style>
+</head>
+<body>
+
+    <h2>AnaesPro Logbook</h2>
+
+    <div class="card">
+        <h3 style="margin-top:0;">Add New Case</h3>
+        <form id="caseForm">
+            <div class="form-group">
+                <label>Date</label>
+                <input type="date" id="date" required>
+            </div>
+            <div class="form-group">
+                <label>Patient Name</label>
+                <input type="text" id="patientName" placeholder="Enter name" required>
+            </div>
+            <div class="form-group">
+                <label>Surgery</label>
+                <input type="text" id="surgery" placeholder="e.g. Appendectomy" required>
+            </div>
+            <div class="form-group">
+                <label>Hospital</label>
+                <input type="text" id="hospital" placeholder="Hospital Name" required>
+            </div>
+            <div class="form-group">
+                <label>Fees (₹)</label>
+                <input type="number" id="fees" placeholder="0" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Save Case</button>
+        </form>
+    </div>
+
+    <div class="total-banner">Generate PDF Reports</div>
+    <div class="report-grid">
+        <button class="btn btn-success" onclick="exportSummary('daily')">Daily PDF</button>
+        <button class="btn btn-success" onclick="exportSummary('weekly')">Weekly PDF</button>
+        <button class="btn btn-success" onclick="exportSummary('monthly')">Monthly PDF</button>
+        <button class="btn btn-success" onclick="exportSummary('yearly')">Yearly PDF</button>
+    </div>
+
+    <div class="table-container">
+        <table id="logTable">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Patient</th>
+                    <th>Surgery</th>
+                    <th>Hospital</th>
+                    <th>Fees</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                </tbody>
+        </table>
+    </div>
+    
+    <p id="noDataMsg" style="text-align:center; color:#777; margin-top:20px; display:none;">No cases recorded yet.</p>
+
+
+    <script>
+        // --- CONFIG ---
+        const STORAGE_KEY = 'anaespro_cases';
+        
+        // --- 1. INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Set today's date in form
+            document.getElementById('date').valueAsDate = new Date();
+            loadCases();
+        });
+
+        // --- 2. ADD CASE ---
+        document.getElementById('caseForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const newCase = {
+                id: Date.now(), // Unique ID
+                date: document.getElementById('date').value,
+                name: document.getElementById('patientName').value,
+                surgery: document.getElementById('surgery').value,
+                hospital: document.getElementById('hospital').value,
+                fees: document.getElementById('fees').value
+            };
+
+            const cases = getCases();
+            cases.push(newCase);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(cases)); // Save to phone storage
+            
+            this.reset();
+            document.getElementById('date').valueAsDate = new Date(); // Reset date to today
+            loadCases();
+            alert("Case Saved!");
+        });
+
+        // --- 3. LOAD & RENDER TABLE ---
+        function getCases() {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            return stored ? JSON.parse(stored) : [];
+        }
+
+        function loadCases() {
+            const cases = getCases();
+            // Sort by date (newest first)
+            cases.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            if(cases.length === 0) {
+                document.getElementById('noDataMsg').style.display = 'block';
+                return;
+            } else {
+                document.getElementById('noDataMsg').style.display = 'none';
+            }
+
+            cases.forEach(c => {
+                const tr = document.createElement('tr');
+                // IMPORTANT: data-label attributes are what fix the Mobile Layout!
+                tr.innerHTML = `
+                    <td data-label="Date">${formatDate(c.date)}</td>
+                    <td data-label="Patient">${c.name}</td>
+                    <td data-label="Surgery">${c.surgery}</td>
+                    <td data-label="Hospital">${c.hospital}</td>
+                    <td data-label="Fees">₹${c.fees}</td>
+                    <td data-label="Actions">
+                        <button class="btn-print" onclick='printReceipt(${JSON.stringify(c)})'>Receipt</button>
+                        <button class="btn-danger" onclick="deleteCase(${c.id})">Del</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // --- 4. DELETE CASE ---
+        function deleteCase(id) {
+            if(confirm('Are you sure you want to delete this case?')) {
+                let cases = getCases();
+                cases = cases.filter(c => c.id !== id);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(cases));
+                loadCases();
+            }
+        }
+
+        // --- 5. PRINT INDIVIDUAL RECEIPT ---
+        function printReceipt(data) {
+            const html = `
+                <div style="border: 2px solid #333; padding: 20px; max-width: 400px; margin: 20px auto; font-family: sans-serif;">
+                    <h2 style="text-align:center; margin-bottom: 5px;">RECEIPT</h2>
+                    <p style="text-align:center; margin-top:0; color:#666;">AnaesPro Services</p>
+                    <hr>
+                    <p><strong>Date:</strong> ${formatDate(data.date)}</p>
+                    <p><strong>Patient:</strong> ${data.name}</p>
+                    <p><strong>Surgery:</strong> ${data.surgery}</p>
+                    <p><strong>Hospital:</strong> ${data.hospital}</p>
+                    <div style="background:#f9f9f9; padding:10px; margin-top:20px; text-align:right;">
+                        <strong>Total Fees: ₹${data.fees}</strong>
+                    </div>
+                    <hr>
+                    <p style="text-align:center; font-size:12px; color:#888;">Thank you.</p>
+                </div>
+            `;
+            openInExternalBrowser("Receipt", html);
+        }
+
+        // --- 6. EXPORT PDF SUMMARIES (The Filter Logic) ---
+        function exportSummary(type) {
+            const cases = getCases();
+            const today = new Date();
+            let filtered = [];
+            let title = "";
+
+            if (type === 'daily') {
+                title = `Daily Report (${formatDate(today.toISOString().split('T')[0])})`;
+                filtered = cases.filter(c => c.date === today.toISOString().split('T')[0]);
+            } 
+            else if (type === 'weekly') {
+                title = "Weekly Report (Last 7 Days)";
+                const weekAgo = new Date();
+                weekAgo.setDate(today.getDate() - 7);
+                filtered = cases.filter(c => new Date(c.date) >= weekAgo);
+            } 
+            else if (type === 'monthly') {
+                const currentMonth = today.toISOString().slice(0, 7); // YYYY-MM
+                title = `Monthly Report (${today.toLocaleString('default', { month: 'long' })})`;
+                filtered = cases.filter(c => c.date.startsWith(currentMonth));
+            } 
+            else if (type === 'yearly') {
+                const currentYear = today.getFullYear().toString();
+                title = `Yearly Report (${currentYear})`;
+                filtered = cases.filter(c => c.date.startsWith(currentYear));
+            }
+
+            if(filtered.length === 0) {
+                alert("No records found for " + title);
+                return;
+            }
+
+            generatePDFTable(title, filtered);
+        }
+
+        function generatePDFTable(title, data) {
+            // Calculate Total
+            const total = data.reduce((sum, item) => sum + Number(item.fees), 0);
+
+            // Create Rows
+            const rowsHtml = data.map(c => `
+                <tr>
+                    <td>${formatDate(c.date)}</td>
+                    <td>${c.name}</td>
+                    <td>${c.surgery}</td>
+                    <td>${c.hospital}</td>
+                    <td style="text-align:right;">₹${c.fees}</td>
+                </tr>
+            `).join('');
+
+            const html = `
+                <h2 style="text-align:center;">${title}</h2>
+                <table style="width:100%; border-collapse: collapse; margin-top:20px; font-family: sans-serif;">
+                    <thead>
+                        <tr style="background:#f2f2f2;">
+                            <th style="border:1px solid #444; padding:8px;">Date</th>
+                            <th style="border:1px solid #444; padding:8px;">Patient</th>
+                            <th style="border:1px solid #444; padding:8px;">Surgery</th>
+                            <th style="border:1px solid #444; padding:8px;">Hospital</th>
+                            <th style="border:1px solid #444; padding:8px; text-align:right;">Fees</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                        <tr style="background:#e9ecef; font-weight:bold;">
+                            <td colspan="4" style="border:1px solid #444; padding:8px; text-align:right;">TOTAL</td>
+                            <td style="border:1px solid #444; padding:8px; text-align:right;">₹${total}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            `;
+            openInExternalBrowser(title, html);
+        }
+
+        // --- 7. THE "BLOB" TRICK (Fixes AppsGeyser Printing) ---
+        function openInExternalBrowser(title, content) {
+            const fullPage = `
+                <html>
+                <head>
+                    <title>${title}</title>
+                    <style>
+                        body { padding: 20px; font-family: sans-serif; }
+                        .print-btn { 
+                            display: block; width: 100%; max-width: 300px; margin: 20px auto; 
+                            background: #007bff; color: white; padding: 15px; 
+                            text-align: center; font-size: 18px; border: none; border-radius: 8px; cursor: pointer; 
+                        }
+                    </style>
+                </head>
+                <body>
+                    ${content}
+                    <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
+                    <script>
+                        // Try to auto-print after load
+                        setTimeout(() => window.print(), 800);
+                    <\/script>
+                </body>
+                </html>
+            `;
+
+            const blob = new Blob([fullPage], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            
+            // Create a hidden link and click it. 
+            // target="_blank" forces it to system browser.
+            const a = document.createElement('a');
+            a.href = url;
+            a.target = "_blank";
+            a.click();
+        }
+
+        // Helper: Format Date nicely
+        function formatDate(dateStr) {
+            if(!dateStr) return '';
+            const options = { year: 'numeric', month: 'short', day: 'numeric' };
+            return new Date(dateStr).toLocaleDateString('en-IN', options);
+        }
+
+    </script>
+</body>
+</html>
