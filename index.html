@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Anaesthesia Suite Pro</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { colors: { darkbg: '#0f172a', darkcard: '#1e293b' } } }
+        }
+    </script>
+
+    <style>
+        /* --- CORE UI --- */
+        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid #e2e8f0; }
+        .dark .glass { background: rgba(30, 41, 59, 0.95); border-color: #334155; color: #e2e8f0; }
+        
+        /* FORM ELEMENTS */
+        input, select, textarea { border: 1px solid #cbd5e1; border-radius: 10px; padding: 12px; width: 100%; font-size: 14px; background: white; color: #0f172a; outline: none; }
+        .dark input, .dark select, .dark textarea { background: #0f172a; border-color: #334155; color: white; }
+        
+        /* NAVIGATION & PILLS */
+        .pill { padding: 8px 16px; border-radius: 99px; font-size: 11px; font-weight: 700; border: 1px solid #e2e8f0; background: white; color: #64748b; }
+        .dark .pill { background: #0f172a; border-color: #334155; color: #94a3b8; }
+        .pill.active { background: #3b82f6; color: white; border-color: #3b82f6; }
+
+        /* MOBILE TABLE (CARDS) */
+        @media (max-width: 768px) {
+            .mobile-table thead { display: none; }
+            .mobile-table tr { display: block; margin-bottom: 1rem; background-color: white; border: 1px solid #e2e8f0; border-radius: 1rem; padding: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+            .dark .mobile-table tr { background-color: #1e293b; border-color: #334155; }
+            .mobile-table td { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #f1f5f9; }
+            .dark .mobile-table td { border-color: #334155; }
+            .mobile-table td:last-child { border-bottom: none; justify-content: flex-end; gap: 5px; padding-top: 10px; }
+            .mobile-table td::before { content: attr(data-label); font-weight: 800; font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; }
+        }
+
+        /* UTILS */
+        .view { display: none; }
+        .view.active { display: block; animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        #toast { visibility: hidden; min-width: 250px; background-color: #0f172a; color: white; text-align: center; border-radius: 12px; padding: 16px; position: fixed; z-index: 9999; left: 50%; bottom: 30px; transform: translateX(-50%); }
+        #toast.show { visibility: visible; animation: fadeinout 2.5s; }
+        @keyframes fadeinout { 0% { bottom: 0; opacity: 0; } 20% { bottom: 30px; opacity: 1; } 100% { bottom: 0; opacity: 0; } }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 transition-colors duration-300">
+
+<div id="toast">Saved</div>
+
+<div id="app" class="max-w-7xl mx-auto min-h-screen flex flex-col md:flex-row">
+    
+    <nav class="w-full md:w-72 bg-slate-900 text-white p-6 flex flex-col sticky top-0 z-[50]">
+        <div class="flex justify-between items-start mb-4">
+            <div>
+                <h1 class="text-2xl font-black text-blue-400 italic">ANAESPRO</h1>
+                <p id="nav_dr_name" class="text-[10px] text-slate-400 font-bold mt-1 uppercase">Loading...</p>
+            </div>
+            <button onclick="toggleNav()" class="md:hidden p-2 text-slate-400 border border-slate-700 rounded">☰</button>
+        </div>
+        <div id="nav_content" class="hidden md:flex flex-col space-y-3">
+            <button onclick="changeView('dashboard')" class="p-3 text-left hover:bg-white/10 rounded font-bold text-sm">📊 Dashboard</button>
+            <button onclick="changeView('new-case')" class="p-3 text-left hover:bg-white/10 rounded font-bold text-sm">✚ New Case</button>
+            <button onclick="changeView('logbook')" class="p-3 text-left hover:bg-white/10 rounded font-bold text-sm">📋 Logbook</button>
+            <button onclick="toggleProfile()" class="p-3 text-left hover:bg-white/10 rounded font-bold text-sm border border-slate-700 mt-4">⚙ Settings</button>
+            <div class="pt-4 mt-auto space-y-2">
+                <button onclick="toggleTheme()" class="w-full bg-slate-800 p-3 rounded text-xs font-bold">🌓 Toggle Theme</button>
+                <button onclick="exportFullSummary()" class="w-full bg-blue-600 p-3 rounded text-xs font-black uppercase">📄 PDF Summary</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-grow p-4 md:p-10 pb-24 bg-slate-50 dark:bg-darkbg relative z-10">
+        
+        <div id="view-dashboard" class="view active">
+            <h2 class="text-3xl font-black mb-6 dark:text-white">Overview</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="glass p-6 rounded-xl border-l-4 border-blue-500">
+                    <p class="text-xs font-bold text-slate-400 uppercase">Total Revenue</p>
+                    <p id="dash_total" class="text-3xl font-black dark:text-white">₹0</p>
+                </div>
+                <div class="glass p-6 rounded-xl border-l-4 border-emerald-500">
+                    <p class="text-xs font-bold text-slate-400 uppercase">This Month</p>
+                    <p id="dash_month" class="text-3xl font-black dark:text-white">₹0</p>
+                </div>
+                <div class="glass p-6 rounded-xl border-l-4 border-purple-500">
+                    <p class="text-xs font-bold text-slate-400 uppercase">Total Cases</p>
+                    <p id="dash_cases" class="text-3xl font-black dark:text-white">0</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-new-case" class="view">
+            <h2 class="text-2xl font-black mb-6 dark:text-white">New Entry</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="glass p-6 rounded-2xl space-y-3">
+                    <h3 class="text-xs font-bold text-blue-500 uppercase">Patient</h3>
+                    <input type="date" id="in_date">
+                    <input type="text" id="in_name" placeholder="Patient Name" class="font-bold">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="number" id="in_age" placeholder="Age">
+                        <select id="in_sex"><option>Male</option><option>Female</option><option>Other</option></select>
+                    </div>
+                    <input type="text" id="in_ipd" placeholder="IPD / UHID">
+                </div>
+                <div class="glass p-6 rounded-2xl space-y-3">
+                    <h3 class="text-xs font-bold text-blue-500 uppercase">Surgery</h3>
+                    <input type="text" id="in_surgery" list="dl_surgery" placeholder="Surgery Name">
+                    <input type="text" id="in_surgeon" list="dl_surgeon" placeholder="Surgeon Name">
+                    <input type="text" id="in_ana" list="dl_ana" placeholder="Anaesthesia Type">
+                    <input type="text" id="in_hosp" list="dl_hosp" placeholder="Hospital">
+                </div>
+            </div>
+            <div class="mt-4 glass p-6 rounded-2xl text-center border-2 border-slate-200 dark:border-slate-700">
+                <p class="text-xs font-bold text-slate-400 uppercase mb-2">Professional Fees</p>
+                <div class="flex justify-center items-center gap-2">
+                    <span class="text-2xl text-slate-400">₹</span>
+                    <input type="number" id="in_fee" class="text-4xl font-black text-center bg-transparent border-none p-0" placeholder="0">
+                </div>
+                <div class="grid grid-cols-2 gap-2 mt-4">
+                    <select id="in_mop"><option>Cash</option><option>UPI</option><option>Bank</option></select>
+                    <input type="text" id="in_utr" placeholder="UTR (Optional)">
+                </div>
+            </div>
+            <button onclick="saveCaseRecord()" class="w-full mt-6 bg-blue-600 text-white py-4 rounded-xl font-black text-lg shadow-lg">SAVE RECORD</button>
+        </div>
+
+        <div id="view-logbook" class="view">
+            <h2 class="text-2xl font-black mb-6 dark:text-white">Logbook</h2>
+            <div class="glass p-4 rounded-2xl mb-6 space-y-3">
+                <div class="flex gap-2 overflow-x-auto pb-2">
+                    <button class="pill active whitespace-nowrap" data-f="all">All Time</button>
+                    <button class="pill whitespace-nowrap" data-f="daily">Today</button>
+                    <button class="pill whitespace-nowrap" data-f="weekly">Week</button>
+                    <button class="pill whitespace-nowrap" data-f="monthly">Month</button>
+                </div>
+                <div class="flex gap-2">
+                    <input type="text" id="search_bar" oninput="renderLog()" placeholder="Search..." class="flex-grow">
+                    <select id="filter_hosp" onchange="renderLog()" class="w-1/3"><option value="">All Hospitals</option></select>
+                </div>
+            </div>
+            <div class="glass rounded-xl overflow-hidden">
+                <table class="w-full mobile-table text-sm text-left text-slate-600 dark:text-slate-300">
+                    <thead class="bg-slate-100 dark:bg-slate-800 text-xs uppercase font-bold text-slate-500">
+                        <tr>
+                            <th class="p-4">Date</th>
+                            <th class="p-4">Patient</th>
+                            <th class="p-4">Surgery</th>
+                            <th class="p-4">Hospital</th>
+                            <th class="p-4 text-right">Fee</th>
+                            <th class="p-4 text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="log_body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="profile_view" class="hidden fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-4 backdrop-blur-sm">
+            <div class="bg-white dark:bg-darkcard w-full max-w-lg rounded-2xl p-6 max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between mb-4"><h2 class="font-bold text-xl dark:text-white">Settings</h2><button onclick="toggleProfile()" class="text-2xl">&times;</button></div>
+                <div class="space-y-3">
+                    <input type="text" id="cfg_name" placeholder="Your Name">
+                    <input type="text" id="cfg_degree" placeholder="Qualification">
+                    <input type="text" id="cfg_reg" placeholder="Reg Number">
+                    <textarea id="cfg_hosp" placeholder="Hospital Header" rows="2"></textarea>
+                    <button onclick="saveProfile()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold">Save Profile</button>
+                    <hr class="border-slate-200 dark:border-slate-700 my-4">
+                    <button onclick="backupData()" class="w-full bg-slate-100 dark:bg-slate-800 py-3 rounded-lg font-bold text-xs uppercase">Download Backup</button>
+                    <button onclick="document.getElementById('import_file').click()" class="w-full bg-slate-100 dark:bg-slate-800 py-3 rounded-lg font-bold text-xs uppercase mt-2">Restore Backup</button>
+                    <input type="file" id="import_file" class="hidden" onchange="importData(event)">
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <datalist id="dl_surgery"></datalist><datalist id="dl_surgeon"></datalist><datalist id="dl_hosp"></datalist>
+    <datalist id="dl_ana"><option>GA</option><option>Spinal</option><option>Epidural</option><option>Block</option><option>Sedation</option></datalist>
+    <div id="qr_stage" style="display:none;"></div>
+
+</div>
+
+<script>
+    // --- 1. DATA & INIT ---
+    let db = JSON.parse(localStorage.getItem('anaes_v5_db')) || [];
+    let profile = JSON.parse(localStorage.getItem('anaes_v5_prof')) || { 
+        name: 'Doctor Name', degree: 'MD', reg: '12345', hosp: 'City Hospital', lastBackup: 0, theme: 'light' 
+    };
+    let editId = null;
+    let timeFilter = 'all';
+
+    function init() {
+        if(profile.theme === 'dark') document.documentElement.classList.add('dark');
+        document.getElementById('cfg_name').value = profile.name;
+        document.getElementById('cfg_degree').value = profile.degree;
+        document.getElementById('cfg_reg').value = profile.reg;
+        document.getElementById('cfg_hosp').value = profile.hosp;
+        document.getElementById('nav_dr_name').innerText = `Dr. ${profile.name}`;
+        document.getElementById('in_date').valueAsDate = new Date();
+        updateDashboard(); updateDatalists(); setupFilters();
+        document.querySelectorAll('.pill').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+                btn.classList.add('active');
+                timeFilter = btn.dataset.f;
+                renderLog();
+            });
+        });
+    }
+
+    // --- 2. LOGIC ---
+    function saveCaseRecord() {
+        const name = document.getElementById('in_name').value;
+        if(!name) { showToast("Name is required"); return; }
+        const data = {
+            id: editId || Date.now(),
+            date: document.getElementById('in_date').value,
+            name: name.toUpperCase(),
+            age: document.getElementById('in_age').value,
+            sex: document.getElementById('in_sex').value,
+            ipd: document.getElementById('in_ipd').value,
+            surgery: document.getElementById('in_surgery').value,
+            surgeon: document.getElementById('in_surgeon').value,
+            ana: document.getElementById('in_ana').value,
+            hosp: document.getElementById('in_hosp').value,
+            fee: parseFloat(document.getElementById('in_fee').value || 0),
+            mop: document.getElementById('in_mop').value,
+            utr: document.getElementById('in_utr').value
+        };
+        if(editId) { db[db.findIndex(x => x.id === editId)] = data; editId = null; } else { db.push(data); }
+        localStorage.setItem('anaes_v5_db', JSON.stringify(db));
+        showToast("Saved!");
+        resetForm(); updateDashboard(); updateDatalists(); changeView('logbook');
+    }
+
+    function editCase(id) {
+        const c = db.find(x => x.id === id); if(!c) return;
+        editId = id;
+        document.getElementById('in_name').value = c.name; document.getElementById('in_age').value = c.age;
+        document.getElementById('in_sex').value = c.sex; document.getElementById('in_ipd').value = c.ipd;
+        document.getElementById('in_date').value = c.date; document.getElementById('in_surgery').value = c.surgery;
+        document.getElementById('in_surgeon').value = c.surgeon; document.getElementById('in_ana').value = c.ana;
+        document.getElementById('in_hosp').value = c.hosp; document.getElementById('in_fee').value = c.fee;
+        document.getElementById('in_mop').value = c.mop; document.getElementById('in_utr').value = c.utr;
+        changeView('new-case');
+    }
+
+    function renderLog() {
+        const q = document.getElementById('search_bar').value.toLowerCase();
+        const fH = document.getElementById('filter_hosp').value;
+        const now = new Date();
+        const filtered = db.filter(c => {
+            const matchTxt = c.name.toLowerCase().includes(q) || c.hosp.toLowerCase().includes(q);
+            if(!matchTxt) return false;
+            if(fH && c.hosp !== fH) return false;
+            const d = new Date(c.date);
+            if(timeFilter === 'daily') return c.date === now.toISOString().split('T')[0];
+            if(timeFilter === 'weekly') return (now - d) / 86400000 <= 7;
+            if(timeFilter === 'monthly') return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+            return true;
+        });
+        
+        document.getElementById('log_body').innerHTML = filtered.sort((a,b)=> new Date(b.date)-new Date(a.date)).map(c => `
+            <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 border-b dark:border-slate-700">
+                <td class="p-3 font-mono text-xs" data-label="Date">${c.date}</td>
+                <td class="p-3 font-bold text-slate-800 dark:text-white" data-label="Patient">${c.name}</td>
+                <td class="p-3 text-xs" data-label="Surgery">${c.surgery}</td>
+                <td class="p-3 text-xs" data-label="Hospital">${c.hosp}</td>
+                <td class="p-3 font-mono font-bold text-green-600 text-right" data-label="Fee">₹${c.fee}</td>
+                <td class="p-3 text-center" data-label="Action">
+                    <button onclick="printA5Receipt(${c.id})" class="bg-blue-600 text-white px-3 py-1 rounded text-xs mr-1">Receipt</button>
+                    <button onclick="editCase(${c.id})" class="bg-slate-500 text-white px-3 py-1 rounded text-xs mr-1">Edit</button>
+                    <button onclick="deleteCase(${c.id})" class="text-red-400 text-xs font-bold">Del</button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    // --- 3. PRINT ENGINE (A5 & A4) ---
+    function openInSystemBrowser(htmlContent) {
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = "_blank"; // Forces System Browser (Chrome)
+        a.click();
+    }
+
+    function numToWords(n){if(n==0)return"Zero";const u=["","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten","Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen","Eighteen","Nineteen"],t=["","","Twenty","Thirty","Forty","Fifty","Sixty","Seventy","Eighty","Ninety"];const c=n=>{if(n<20)return u[n];if(n<100)return t[Math.floor(n/10)]+(n%10?" "+u[n%10]:"");if(n<1000)return u[Math.floor(n/100)]+" Hundred"+(n%100?" "+c(n%100):"");if(n<100000)return c(Math.floor(n/1000))+" Thousand"+(n%1000?" "+c(n%1000):"");return c(Math.floor(n/100000))+" Lakh"+(n%100000?" "+c(n%100000):"")};return c(n)+" Only"}
+
+    function printA5Receipt(id) {
+        const c = db.find(x => x.id === id); if(!c) return;
+        document.getElementById('qr_stage').innerHTML = "";
+        new QRCode(document.getElementById('qr_stage'), { text: `REC:${c.id}|${c.fee}`, width: 60, height: 60 });
+        const qr = document.getElementById('qr_stage').querySelector('canvas').toDataURL();
+        
+        const html = `<!DOCTYPE html><html><head><title>R-${c.name}</title><meta name="viewport" content="width=device-width,initial-scale=1.0">
+        <style>
+            body{font-family:Helvetica,sans-serif;background:#fff;color:#000;margin:0;padding:20px}
+            @media screen{body{padding-bottom:100px}}
+            @media print{@page{size:A5 portrait;margin:0}body{width:148mm;height:210mm;padding:10mm}.btn{display:none}}
+            .box{border:1px solid #000;padding:15px;border-radius:8px;margin-top:10px}
+            .row{display:flex;margin-bottom:8px;font-size:12px;border-bottom:1px dotted #ccc;padding-bottom:2px}
+            .lbl{width:90px;font-weight:bold;color:#444}.val{flex:1;font-weight:bold}
+            .btn{display:block;width:100%;padding:15px;background:#2563eb;color:#fff;text-align:center;border-radius:8px;text-decoration:none;margin-top:20px;font-weight:bold}
+        </style></head><body>
+            <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:10px
